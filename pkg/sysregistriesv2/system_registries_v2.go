@@ -74,10 +74,10 @@ type Endpoint struct {
 }
 
 // userRegistriesFile is the path to the per user registry configuration file.
-var userRegistriesFile = filepath.FromSlash(".config/containers/registries.conf")
+var userRegistriesFile = filepath.FromSlash("containers/registries.conf")
 
 // userRegistriesDir is the path to the per user registry configuration file.
-var userRegistriesDir = filepath.FromSlash(".config/containers/registries.conf.d")
+var userRegistriesDir = filepath.FromSlash("containers/registries.conf.d")
 
 // rewriteReference will substitute the provided reference `prefix` to the
 // endpoints `location` from the `ref` and creates a new named reference from it.
@@ -560,15 +560,31 @@ type configWrapper struct {
 
 // newConfigWrapper returns a configWrapper for the specified SystemContext.
 func newConfigWrapper(ctx *types.SystemContext) configWrapper {
-	return newConfigWrapperWithHomeDir(ctx, homedir.Get())
+	confHome, _ := homedir.GetConfigHome()
+	return newConfigWrapperWithHomeDir(ctx, homedir.Get(), confHome)
 }
 
 // newConfigWrapperWithHomeDir is an internal implementation detail of newConfigWrapper,
 // it exists only to allow testing it with an artificial home directory.
-func newConfigWrapperWithHomeDir(ctx *types.SystemContext, homeDir string) configWrapper {
+func newConfigWrapperWithHomeDir(ctx *types.SystemContext, overrideHomeDir string, overrideConfigHome string) configWrapper {
 	var wrapper configWrapper
-	userRegistriesFilePath := filepath.Join(homeDir, userRegistriesFile)
-	userRegistriesDirPath := filepath.Join(homeDir, userRegistriesDir)
+	homeDir := homedir.Get()
+	configHome, _ := homedir.GetConfigHome()
+
+	if overrideHomeDir != homeDir {
+		homeDir = overrideHomeDir
+	}
+	if overrideConfigHome != configHome {
+		configHome = overrideConfigHome
+	}
+
+	// subtract home from config home before joining
+	configHome = strings.Replace(configHome, homeDir, "", 1)
+
+	// Join paths using the resolved home and config directories
+	MergedConfHome := filepath.Join(homeDir, configHome)
+	userRegistriesFilePath := filepath.Join(MergedConfHome, userRegistriesFile)
+	userRegistriesDirPath := filepath.Join(MergedConfHome, userRegistriesDir)
 
 	// decide configPath using per-user path or system file
 	if ctx != nil && ctx.SystemRegistriesConfPath != "" {
