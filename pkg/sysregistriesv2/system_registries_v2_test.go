@@ -240,30 +240,26 @@ func TestNewConfigWrapper(t *testing.T) {
 	const variableReference = "$HOME"
 	const rootPrefix = "/root/prefix"
 	tempHome := t.TempDir()
-	defaultConfHome := ".config"
-	altConfHome := ".local/config"
 	var userRegistriesFile = filepath.FromSlash("containers/registries.conf")
-	userRegistriesFilePath := filepath.Join(tempHome, defaultConfHome, userRegistriesFile)
-	userAltRegistriesFilePath := filepath.Join(tempHome, altConfHome, userRegistriesFile)
+	configHome := filepath.Join(tempHome, ".config")
+	userRegistriesFilePath := filepath.Join(configHome, userRegistriesFile)
 
 	for _, c := range []struct {
 		sys             *types.SystemContext
 		userfilePresent bool
 		expected        string
-		useAltConfHome  bool
 	}{
 		// The common case
-		{nil, false, systemRegistriesConfPath, false},
+		{nil, false, systemRegistriesConfPath},
 		// There is a context, but it does not override the path.
-		{&types.SystemContext{}, false, systemRegistriesConfPath, false},
+		{&types.SystemContext{}, false, systemRegistriesConfPath},
 		// Path overridden
-		{&types.SystemContext{SystemRegistriesConfPath: nondefaultPath}, false, nondefaultPath, false},
+		{&types.SystemContext{SystemRegistriesConfPath: nondefaultPath}, false, nondefaultPath},
 		// Root overridden
 		{
 			&types.SystemContext{RootForImplicitAbsolutePaths: rootPrefix},
 			false,
 			filepath.Join(rootPrefix, systemRegistriesConfPath),
-			false,
 		},
 		// Root and path overrides present simultaneously,
 		{
@@ -273,14 +269,11 @@ func TestNewConfigWrapper(t *testing.T) {
 			},
 			false,
 			nondefaultPath,
-			false,
 		},
 		// User registries file overridden
-		{&types.SystemContext{}, true, userRegistriesFilePath, false},
-		// User registries file overridden with XDG_CONFIG_HOME
-		{&types.SystemContext{}, true, userAltRegistriesFilePath, true},
+		{&types.SystemContext{}, true, userRegistriesFilePath},
 		// Context and user User registries file preset simultaneously
-		{&types.SystemContext{SystemRegistriesConfPath: nondefaultPath}, true, nondefaultPath, false},
+		{&types.SystemContext{SystemRegistriesConfPath: nondefaultPath}, true, nondefaultPath},
 		// Root and user registries file overrides present simultaneously,
 		{
 			&types.SystemContext{
@@ -289,30 +282,21 @@ func TestNewConfigWrapper(t *testing.T) {
 			},
 			true,
 			nondefaultPath,
-			false,
 		},
 		// No environment expansion happens in the overridden paths
-		{&types.SystemContext{SystemRegistriesConfPath: variableReference}, false, variableReference, false},
+		{&types.SystemContext{SystemRegistriesConfPath: variableReference}, false, variableReference},
 	} {
 		if c.userfilePresent {
-			configHome := defaultConfHome
-			configPath := userRegistriesFilePath
-			if c.useAltConfHome {
-				configHome = altConfHome
-				configPath = userAltRegistriesFilePath
-			}
-			err := os.MkdirAll(filepath.Dir(configPath), os.ModePerm)
+			err := os.MkdirAll(filepath.Dir(userRegistriesFilePath), os.ModePerm)
 			require.NoError(t, err)
-			f, err := os.Create(configPath)
+			f, err := os.Create(userRegistriesFilePath)
 			require.NoError(t, err)
 			f.Close()
-			path := newConfigWrapperWithHomeDir(c.sys, tempHome, configHome).configPath
-			assert.Equal(t, c.expected, path)
 		} else {
-			os.Remove(userAltRegistriesFilePath)
 			os.Remove(userRegistriesFilePath)
 		}
-
+		path := newConfigWrapperWithConfigHome(c.sys, configHome).configPath
+		assert.Equal(t, c.expected, path)
 	}
 }
 

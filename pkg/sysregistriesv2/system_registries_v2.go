@@ -561,30 +561,15 @@ type configWrapper struct {
 // newConfigWrapper returns a configWrapper for the specified SystemContext.
 func newConfigWrapper(ctx *types.SystemContext) configWrapper {
 	confHome, _ := homedir.GetConfigHome()
-	return newConfigWrapperWithHomeDir(ctx, homedir.Get(), confHome)
+	return newConfigWrapperWithConfigHome(ctx, confHome)
 }
 
-// newConfigWrapperWithHomeDir is an internal implementation detail of newConfigWrapper,
-// it exists only to allow testing it with an artificial home directory.
-func newConfigWrapperWithHomeDir(ctx *types.SystemContext, overrideHomeDir string, overrideConfigHome string) configWrapper {
+// newConfigWrapperWithConfigHome is an internal implementation detail of
+// newConfigWrapper, it exists only to allow testing
+func newConfigWrapperWithConfigHome(ctx *types.SystemContext, configHome string) configWrapper {
 	var wrapper configWrapper
-	homeDir := homedir.Get()
-	configHome, _ := homedir.GetConfigHome()
-
-	if overrideHomeDir != homeDir {
-		homeDir = overrideHomeDir
-	}
-	if overrideConfigHome != configHome {
-		configHome = overrideConfigHome
-	}
-
-	// subtract home from config home before joining
-	configHome = strings.Replace(configHome, homeDir, "", 1)
-
-	// Join paths using the resolved home and config directories
-	MergedConfHome := filepath.Join(homeDir, configHome)
-	userRegistriesFilePath := filepath.Join(MergedConfHome, userRegistriesFile)
-	userRegistriesDirPath := filepath.Join(MergedConfHome, userRegistriesDir)
+	userRegistriesFilePath := filepath.Join(configHome, userRegistriesFile)
+	userRegistriesDirPath := filepath.Join(configHome, userRegistriesDir)
 
 	// decide configPath using per-user path or system file
 	if ctx != nil && ctx.SystemRegistriesConfPath != "" {
